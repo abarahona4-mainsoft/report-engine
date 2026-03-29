@@ -7,16 +7,18 @@ services:
     container_name: report_engine_app
     restart: unless-stopped
     working_dir: /var/www
-    volumes:
-      - .:/var/www
-      - /var/www/vendor
-      - ./storage:/var/www/storage
     entrypoint: >
       sh -c "
+        chmod -R 777 /var/www/storage &&
+        chmod -R 777 /var/www/bootstrap/cache &&
         php artisan config:clear &&
         php artisan migrate --force &&
         /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
       "
+    volumes:
+      - .:/var/www
+      - /var/www/vendor
+      - ./storage:/var/www/storage
     depends_on:
       - redis
     networks:

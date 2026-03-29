@@ -34,24 +34,17 @@ WORKDIR /var/www
 
 COPY . .
 
-# Convierte CRLF a LF en todos los archivos de config de docker
+# Convierte CRLF a LF en archivos de docker
 RUN find /var/www/docker -type f | xargs sed -i 's/\r//'
 
-# Copia el .env.example como .env si no existe .env
+# Copia .env si no existe
 RUN if [ ! -f /var/www/.env ]; then cp /var/www/.env.example /var/www/.env; fi
 
 RUN composer install --no-interaction --optimize-autoloader
 
-# Permisos correctos desde el build
-RUN chown -R www-data:www-data /var/www/storage \
-    /var/www/bootstrap/cache \
-    /var/www/database \
-    && chmod -R 775 /var/www/storage \
-    && chmod -R 775 /var/www/bootstrap/cache
-
-COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+# Copia supervisord limpio directo al destino
+COPY docker/supervisord.conf /tmp/supervisord.conf
+RUN sed -i 's/\r//' /tmp/supervisord.conf \
+    && cp /tmp/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 EXPOSE 9000
-
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
