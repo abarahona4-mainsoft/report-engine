@@ -1,4 +1,4 @@
-FROM php:8.3-fpm
+FROM php:8.4-fpm
 
 RUN apt-get update && apt-get install -y \
     git \
@@ -34,14 +34,23 @@ WORKDIR /var/www
 
 COPY . .
 
+# Convierte CRLF a LF en todos los archivos de config de docker
+RUN find /var/www/docker -type f | xargs sed -i 's/\r//'
+
+# Copia el .env.example como .env si no existe .env
+RUN if [ ! -f /var/www/.env ]; then cp /var/www/.env.example /var/www/.env; fi
+
 RUN composer install --no-interaction --optimize-autoloader
 
-RUN chown -R www-data:www-data \
-    /var/www/storage \
+# Permisos correctos desde el build
+RUN chown -R www-data:www-data /var/www/storage \
     /var/www/bootstrap/cache \
-    /var/www/database
+    /var/www/database \
+    && chmod -R 775 /var/www/storage \
+    && chmod -R 775 /var/www/bootstrap/cache
 
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 9000
 
