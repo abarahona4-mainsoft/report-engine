@@ -3,10 +3,10 @@
 namespace App\Reports\Exports\Sheets;
 
 use App\Reports\Exports\BaseExcelExport;
-use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class PerspectivesSheet extends BaseExcelExport implements FromArray
+class PerspectivesSheet extends BaseExcelExport implements WithTitle
 {
     private array $data;
 
@@ -16,14 +16,9 @@ class PerspectivesSheet extends BaseExcelExport implements FromArray
         $this->data = $data;
     }
 
-    public function array(): array
-    {
-        return $this->data;
-    }
-
     public function title(): string
     {
-        return 'Perspectivas';
+        return 'Aplicaciones';
     }
 
     protected function subtitle(): string
@@ -34,12 +29,12 @@ class PerspectivesSheet extends BaseExcelExport implements FromArray
     protected function columns(): array
     {
         return [
-            'Aplicación'     => 'application',
-            'Servicios'      => 'services',
-            'Llamadas'       => 'calls',
-            'Latencia'       => 'latency',
-            'Tasa de Error'  => 'error_rate',
-            'Estado'         => 'estado',
+            'Aplicación'    => 'application',
+            'Servicios'     => 'services',
+            'Llamadas'      => 'calls',
+            'Latencia'      => 'latency',
+            'Tasa de Error' => 'error_rate',
+            'Estado'        => 'estado',
         ];
     }
 
@@ -50,7 +45,7 @@ class PerspectivesSheet extends BaseExcelExport implements FromArray
 
     protected function totalsRow(): array
     {
-        $count = count($this->data);
+        $count = count($this->data) + 5;
         return [
             0 => 'TOTAL',
             1 => "=SUM(B6:B{$count})",

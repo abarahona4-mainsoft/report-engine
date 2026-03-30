@@ -59,13 +59,12 @@ abstract class BaseExcelExport implements WithEvents, ShouldAutoSize
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $sheet   = $event->sheet->getDelegate();
-                $data    = $this->getData();
-                $columns = $this->columns();
-                $keys    = array_values($columns);
-                $headers = array_keys($columns);
-                $colCount = count($headers);
-                $lastCol  = $this->colLetter($colCount - 1);
+                $sheet    = $event->sheet->getDelegate();
+                $data     = $this->getData();
+                $columns  = $this->columns();
+                $keys     = array_values($columns);
+                $headers  = array_keys($columns);
+                $lastCol  = $this->colLetter(count($headers) - 1);
 
                 $this->buildHeader($sheet, $lastCol);
                 $this->buildColumnHeaders($sheet, $headers, $lastCol);
@@ -100,12 +99,9 @@ abstract class BaseExcelExport implements WithEvents, ShouldAutoSize
         ]);
         $sheet->getRowDimension(2)->setRowHeight(24);
 
-        // Fila 3 — período y generación
-        $midCol = $this->colLetter(intdiv(count(array_keys($this->columns())), 2) - 1);
-        $sheet->mergeCells("A3:{$midCol}3");
+        // Fila 3 — solo período
+        $sheet->mergeCells("A3:{$lastCol}3");
         $sheet->setCellValue('A3', "Período: {$this->dateFrom}  →  {$this->dateTo}");
-        $sheet->mergeCells("{$this->colLetter(intdiv(count(array_keys($this->columns())), 2))}3:{$lastCol}3");
-        $sheet->setCellValue("{$this->colLetter(intdiv(count(array_keys($this->columns())), 2))}3", "Generado: {$this->generatedAt} (GMT-5)");
         $sheet->getStyle("A3:{$lastCol}3")->applyFromArray([
             'font'      => ['name' => 'Arial', 'size' => 10, 'italic' => true, 'color' => ['rgb' => $this->colorHeaderDark]],
             'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $this->colorHeaderLight]],
