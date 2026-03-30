@@ -7,29 +7,34 @@ use Illuminate\Support\Facades\Log;
 class InstanaTransformer
 {
     // ─── Perspectives ─────────────────────────────────────────────────
-    public function transformPerspectives(array $raw): array
+    public function transformPerspectives(array $raw, array $excludeApplications = ['All Services']): array
     {
         Log::channel('api')->info('Transformando perspectives', [
             'total_items' => count($raw),
+            'excludiendo' => $excludeApplications,
         ]);
 
-        $result = collect($raw)->map(function ($item) {
-            $calls    = $item['metrics']['calls.sum'][0][1] ?? 0;
-            $services = $item['metrics']['services.distinct_count'][0][1] ?? 0;
-            $errors   = $item['metrics']['errors.mean'][0][1] ?? 0;
-            $latency  = $item['metrics']['latency.mean'][0][1] ?? 0;
+        $result = collect($raw)
+            ->filter(function ($item) use ($excludeApplications) {
+                return !in_array($item['application']['label'] ?? '', $excludeApplications);
+            })
+            ->map(function ($item) {
+                $calls    = $item['metrics']['calls.sum'][0][1] ?? 0;
+                $services = $item['metrics']['services.distinct_count'][0][1] ?? 0;
+                $errors   = $item['metrics']['errors.mean'][0][1] ?? 0;
+                $latency  = $item['metrics']['latency.mean'][0][1] ?? 0;
 
-            return [
-                'application' => $item['application']['label'] ?? 'N/A',
-                'services'    => (int) $services,
-                'calls'       => (int) $calls,
-                'latency'     => $this->formatLatency($latency),
-                'error_rate'  => $this->formatErrorRate($errors),
-            ];
-        })
-        ->sortByDesc('calls')
-        ->values()
-        ->toArray();
+                return [
+                    'application' => $item['application']['label'] ?? 'N/A',
+                    'services'    => (int) $services,
+                    'calls'       => (int) $calls,
+                    'latency'     => $this->formatLatency($latency),
+                    'error_rate'  => $this->formatErrorRate($errors),
+                ];
+            })
+            ->sortByDesc('calls')
+            ->values()
+            ->toArray();
 
         Log::channel('api')->info('Transformación perspectives completada', [
             'total_transformados' => count($result),
