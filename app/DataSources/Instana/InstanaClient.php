@@ -51,19 +51,18 @@ class InstanaClient implements DataSourceInterface
     // ─── Perspectives — con paginación automática ─────────────────────
     public function fetchPerspectives(string $dateTo, int $windowSize): array
     {
+        $windowTo = $this->toUtcMs($dateTo);
+
+        Log::channel('api')->info('Instana perspectives fetch iniciado', [
+            'date_to_lima' => $dateTo,
+            'window_to_utc' => date('Y-m-d H:i:s', $windowTo / 1000) . ' UTC',
+            'window_size'   => $windowSize . 'ms',
+        ]);
+
         $allItems  = [];
         $page      = 1;
         $pageSize  = 200;
-
-        // Interpreta la fecha como GMT-5 y convierte a UTC en ms
-        $dt = new \DateTime($dateTo, new \DateTimeZone('America/Lima'));
-        $dt->setTimezone(new \DateTimeZone('UTC'));
-        $windowTo = $dt->getTimestamp() * 1000;
-
-        Log::channel('api')->info('Instana perspectives fetch iniciado', [
-            'window_to'   => date('Y-m-d H:i:s', $windowTo / 1000),
-            'window_size' => $windowSize . 'ms',
-        ]);
+        $totalHits = 0;
 
         do {
             $body = [
@@ -140,10 +139,67 @@ class InstanaClient implements DataSourceInterface
     }
 
     // ─── Eventos ──────────────────────────────────────────────────────
-    public function fetchEvents(string $dateFrom, string $dateTo): array
+    public function fetchEventsPerspective(string $dateTo, int $windowSize): array
     {
-        // se implementará en siguiente iteración
-        return [];
+        $windowTo = $this->toUtcMs($dateTo);
+
+        Log::channel('api')->info('Instana events fetch iniciado', [
+            'date_to_lima'  => $dateTo,
+            'window_to_utc' => date('Y-m-d H:i:s', $windowTo / 1000) . ' UTC',
+            'window_size'   => $windowSize . 'ms',
+        ]);
+
+        try {
+            $response = Http::withHeaders($this->headers())
+                ->timeout($this->timeout)
+                ->retry($this->retryTimes, $this->retrySleep)
+                ->get("{$this->baseUrl}/api/events", [
+                    'to'                           => $windowTo,
+                    'windowSize'                   => $windowSize,
+                    'filterEventUpdates'           => 'false',
+                    'excludeTriggeredBefore'       => 'false',
+                    'includeAgentMonitoringIssues' => 'false',
+                    'includeKubernetesInfoEvents'  => 'false',
+                    'eventTypeFilters'             => 'ISSUE',
+                ]);
+
+            if ($response->failed()) {
+                Log::channel('api')->error('Instana events fetch fallido', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                return [];
+            }
+
+            $events = $response->json() ?? [];
+
+            $filtered = array_values(array_filter($events, function ($event) {
+                return ($event['type']       ?? '') === 'issue'
+                    && ($event['state']      ?? '') === 'open'
+                    && ($event['entityType'] ?? '') === 'APPLICATION';
+            }));
+
+            Log::channel('api')->info('Instana events fetch completado', [
+                'total_raw'      => count($events),
+                'total_filtrado' => count($filtered),
+            ]);
+
+            return $filtered;
+
+        } catch (\Exception $e) {
+            Log::channel('api')->error('Instana events excepción', [
+                'message' => $e->getMessage(),
+            ]);
+            return [];
+        }
+    }
+
+    // ─── Helper de conversión de fechas ───────────────────────────────────
+    private function toUtcMs(string $date): int
+    {
+        $dt = new \DateTime($date, new \DateTimeZone('America/Lima'));
+        $dt->setTimezone(new \DateTimeZone('UTC'));
+        return $dt->getTimestamp() * 1000;
     }
 
     private function headers(): array
