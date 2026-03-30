@@ -6,43 +6,68 @@ use Illuminate\Support\Facades\Log;
 
 class InstanaTransformer
 {
-    public function transform(array $rawItems): array
+    // ─── Perspectives ─────────────────────────────────────────────────
+    public function transformPerspectives(array $raw): array
     {
-        Log::channel('api')->info('Transformando datos Instana', [
-            'total_items' => count($rawItems),
+        Log::channel('api')->info('Transformando perspectives', [
+            'total_items' => count($raw),
         ]);
 
-        $transformed = collect($rawItems)->map(function ($item) {
+        $result = collect($raw)->map(function ($item) {
+            $calls    = $item['metrics']['calls.sum'][0][1] ?? 0;
+            $services = $item['metrics']['services.distinct_count'][0][1] ?? 0;
+            $errors   = $item['metrics']['errors.mean'][0][1] ?? 0;
+            $latency  = $item['metrics']['latency.mean'][0][1] ?? 0;
+
             return [
-                'endpoint'       => $item['name'] ?? 'N/A',
-                'calls'          => $item['metrics']['calls'][0][1] ?? 0,
-                'errors'         => $item['metrics']['errors'][0][1] ?? 0,
-                'latency_ms'     => round($item['metrics']['latency'][0][1] ?? 0, 2),
-                'error_rate'     => $this->calcErrorRate(
-                                        $item['metrics']['calls'][0][1] ?? 0,
-                                        $item['metrics']['errors'][0][1] ?? 0
-                                    ),
-                'status'         => $this->resolveStatus(
-                                        $item['metrics']['errors'][0][1] ?? 0
-                                    ),
+                'application' => $item['application']['label'] ?? 'N/A',
+                'services'    => (int) $services,
+                'calls'       => (int) $calls,
+                'latency'     => $this->formatLatency($latency),
+                'error_rate'  => $this->formatErrorRate($errors),
             ];
-        })->toArray();
+        })
+        ->sortByDesc('calls')
+        ->values()
+        ->toArray();
 
-        Log::channel('api')->info('Transformación completada', [
-            'total_transformados' => count($transformed),
+        Log::channel('api')->info('Transformación perspectives completada', [
+            'total_transformados' => count($result),
         ]);
 
-        return $transformed;
+        return $result;
     }
 
-    private function calcErrorRate(int $calls, int $errors): string
+    // ─── Métricas ─────────────────────────────────────────────────────
+    public function transformMetrics(array $raw): array
     {
-        if ($calls === 0) return '0%';
-        return round(($errors / $calls) * 100, 2) . '%';
+        return [];
     }
 
-    private function resolveStatus(int $errors): string
+    // ─── Eventos ──────────────────────────────────────────────────────
+    public function transformEvents(array $raw): array
     {
-        return $errors > 0 ? 'ERROR' : 'OK';
+        return [];
+    }
+
+    // ─── Helpers de formato ───────────────────────────────────────────
+
+    private function formatLatency(float $ms): string
+    {
+        if ($ms < 1) {
+            return round($ms * 1000, 2) . 'μs';
+        }
+
+        if ($ms < 1000) {
+            return round($ms, 2) . 'ms';
+        }
+
+        return round($ms / 1000, 2) . 's';
+    }
+
+    private function formatErrorRate(float $rate): string
+    {
+        // Instana devuelve la tasa como decimal (ej: 0.00001288)
+        return number_format($rate * 100, 2) . '%';
     }
 }

@@ -16,56 +16,20 @@ class InstanaClient implements DataSourceInterface
 
     public function __construct()
     {
-        $this->baseUrl   = config('datasources.sources.instana.base_url');
-        $this->apiToken  = config('datasources.sources.instana.api_token');
-        $this->timeout   = config('datasources.sources.instana.timeout', 30);
+        $this->baseUrl    = config('datasources.sources.instana.base_url');
+        $this->apiToken   = config('datasources.sources.instana.api_token');
+        $this->timeout    = config('datasources.sources.instana.timeout', 30);
         $this->retryTimes = config('datasources.sources.instana.retry.times', 3);
         $this->retrySleep = config('datasources.sources.instana.retry.sleep', 1000);
     }
 
     public function fetch(string $dateFrom, string $dateTo): array
     {
-        $windowFrom = strtotime($dateFrom) * 1000;
         $windowTo   = strtotime($dateTo) * 1000;
+        $windowFrom = strtotime($dateFrom) * 1000;
+        $windowSize = $windowTo - $windowFrom;
 
-        Log::channel('api')->info('Instana fetch iniciado', [
-            'date_from' => $dateFrom,
-            'date_to'   => $dateTo,
-        ]);
-
-        try {
-            $response = Http::withHeaders($this->headers())
-                ->timeout($this->timeout)
-                ->retry($this->retryTimes, $this->retrySleep)
-                ->get("{$this->baseUrl}/api/application-monitoring/analyze/call-groups", [
-                    'windowFrom' => $windowFrom,
-                    'windowTo'   => $windowTo,
-                    'fillTimeSeries' => false,
-                ]);
-
-            if ($response->failed()) {
-                Log::channel('api')->error('Instana fetch fallido', [
-                    'status' => $response->status(),
-                    'body'   => $response->body(),
-                ]);
-
-                return [];
-            }
-
-            Log::channel('api')->info('Instana fetch exitoso', [
-                'status' => $response->status(),
-                'items'  => count($response->json('items', [])),
-            ]);
-
-            return $response->json('items', []);
-
-        } catch (\Exception $e) {
-            Log::channel('api')->error('Instana fetch excepción', [
-                'message' => $e->getMessage(),
-            ]);
-
-            return [];
-        }
+        return $this->fetchPerspectives($windowTo, $windowSize);
     }
 
     public function isAvailable(): bool
@@ -76,10 +40,102 @@ class InstanaClient implements DataSourceInterface
                 ->get("{$this->baseUrl}/api/instana/health");
 
             return $response->successful();
-
         } catch (\Exception $e) {
             return false;
         }
+    }
+
+    // ─── Perspectives — con paginación automática ─────────────────────
+    public function fetchPerspectives(int $windowTo, int $windowSize): array
+    {
+        $allItems  = [];
+        $page      = 1;
+        $pageSize  = 200;
+
+        Log::channel('api')->info('Instana perspectives fetch iniciado', [
+            'window_to'   => date('Y-m-d H:i:s', $windowTo / 1000),
+            'window_size' => $windowSize . 'ms',
+        ]);
+
+        do {
+            $body = [
+                'metrics' => [
+                    ['metric' => 'calls',    'aggregation' => 'SUM'],
+                    ['metric' => 'services', 'aggregation' => 'DISTINCT_COUNT'],
+                    ['metric' => 'errors',   'aggregation' => 'MEAN'],
+                    ['metric' => 'latency',  'aggregation' => 'MEAN'],
+                ],
+                'order' => [
+                    'by'        => 'calls.sum',
+                    'direction' => 'DESC',
+                ],
+                'pagination' => [
+                    'page'     => $page,
+                    'pageSize' => $pageSize,
+                ],
+                'timeFrame' => [
+                    'to'         => $windowTo,
+                    'windowSize' => $windowSize,
+                ],
+            ];
+
+            try {
+                $response = Http::withHeaders($this->headers())
+                    ->timeout($this->timeout)
+                    ->retry($this->retryTimes, $this->retrySleep)
+                    ->post("{$this->baseUrl}/api/application-monitoring/metrics/applications", $body);
+
+                if ($response->failed()) {
+                    Log::channel('api')->error('Instana perspectives fetch fallido', [
+                        'page'   => $page,
+                        'status' => $response->status(),
+                        'body'   => $response->body(),
+                    ]);
+                    break;
+                }
+
+                $data      = $response->json();
+                $items     = $data['items'] ?? [];
+                $totalHits = $data['totalHits'] ?? 0;
+                $allItems  = array_merge($allItems, $items);
+
+                Log::channel('api')->info('Instana perspectives página obtenida', [
+                    'page'       => $page,
+                    'items'      => count($items),
+                    'total_hits' => $totalHits,
+                ]);
+
+                $page++;
+
+            } catch (\Exception $e) {
+                Log::channel('api')->error('Instana perspectives excepción', [
+                    'page'    => $page,
+                    'message' => $e->getMessage(),
+                ]);
+                break;
+            }
+
+        } while (count($allItems) < $totalHits);
+
+        Log::channel('api')->info('Instana perspectives fetch completado', [
+            'total_items' => count($allItems),
+        ]);
+
+        return $allItems;
+    }
+
+    // ─── Métricas ─────────────────────────────────────────────────────
+    public function fetchMetrics(string $dateFrom, string $dateTo): array
+    {
+        // se implementará en siguiente iteración
+        return [];
+    }
+
+    // ─── Eventos ──────────────────────────────────────────────────────
+    public function fetchEvents(string $dateFrom, string $dateTo): array
+    {
+        // se implementará en siguiente iteración
+        return [];
     }
 
     private function headers(): array
