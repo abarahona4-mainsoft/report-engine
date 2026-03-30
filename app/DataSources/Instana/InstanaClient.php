@@ -25,11 +25,14 @@ class InstanaClient implements DataSourceInterface
 
     public function fetch(string $dateFrom, string $dateTo): array
     {
-        $windowTo   = strtotime($dateTo) * 1000;
-        $windowFrom = strtotime($dateFrom) * 1000;
+        $from = new \DateTime($dateFrom, new \DateTimeZone('America/Lima'));
+        $to   = new \DateTime($dateTo,   new \DateTimeZone('America/Lima'));
+
+        $windowTo   = $to->getTimestamp() * 1000;
+        $windowFrom = $from->getTimestamp() * 1000;
         $windowSize = $windowTo - $windowFrom;
 
-        return $this->fetchPerspectives($windowTo, $windowSize);
+        return $this->fetchPerspectives($dateTo, $windowSize);
     }
 
     public function isAvailable(): bool
@@ -46,11 +49,16 @@ class InstanaClient implements DataSourceInterface
     }
 
     // ─── Perspectives — con paginación automática ─────────────────────
-    public function fetchPerspectives(int $windowTo, int $windowSize): array
+    public function fetchPerspectives(string $dateTo, int $windowSize): array
     {
         $allItems  = [];
         $page      = 1;
         $pageSize  = 200;
+
+        // Interpreta la fecha como GMT-5 y convierte a UTC en ms
+        $dt = new \DateTime($dateTo, new \DateTimeZone('America/Lima'));
+        $dt->setTimezone(new \DateTimeZone('UTC'));
+        $windowTo = $dt->getTimestamp() * 1000;
 
         Log::channel('api')->info('Instana perspectives fetch iniciado', [
             'window_to'   => date('Y-m-d H:i:s', $windowTo / 1000),
