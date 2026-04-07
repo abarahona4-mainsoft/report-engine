@@ -116,7 +116,7 @@ abstract class BaseExcelExport implements WithEvents, ShouldAutoSize
             $sheet->setCellValue($this->colLetter($col) . '4', $header);
         }
 
-        $sheet->getStyle("A5:{$lastCol}4")->applyFromArray([
+        $sheet->getStyle("A4:{$lastCol}4")->applyFromArray([
             'font'      => ['name' => 'Arial', 'bold' => true, 'size' => 11, 'color' => ['rgb' => 'FFFFFF']],
             'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $this->colorHeaderDark]],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
@@ -144,8 +144,16 @@ abstract class BaseExcelExport implements WithEvents, ShouldAutoSize
                 'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
             ]);
 
-            // Columnas numéricas centradas (todas menos la primera)
-            $sheet->getStyle("B{$excelRow}:{$lastCol}{$excelRow}")
+            // Columna # centrada
+            $sheet->getStyle("A{$excelRow}")
+                ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+            // Columna Aplicación alineada a la izquierda
+            $sheet->getStyle("B{$excelRow}")
+                ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+
+            // Resto de columnas centradas
+            $sheet->getStyle("C{$excelRow}:{$lastCol}{$excelRow}")
                 ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             $sheet->getRowDimension($excelRow)->setRowHeight(18);
@@ -160,7 +168,13 @@ abstract class BaseExcelExport implements WithEvents, ShouldAutoSize
         if (empty($totals)) return;
 
         $totalRow = $lastDataRow + 1;
+
+        // TOTAL siempre en columna B (Aplicación)
+        $sheet->setCellValue("A{$totalRow}", '');
+        $sheet->setCellValue("B{$totalRow}", 'TOTAL');
+
         foreach ($totals as $col => $formula) {
+            if ($col === 0) continue; // skip — ya pusimos TOTAL en B
             $cell = $this->colLetter($col) . $totalRow;
             $sheet->setCellValue($cell, $formula);
         }
