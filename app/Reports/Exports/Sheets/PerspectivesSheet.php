@@ -58,7 +58,7 @@ class PerspectivesSheet extends BaseExcelExport implements WithTitle
     {
         return [
             'item'        => 6,
-            'application' => 55,
+            'application' => 70,
             'services'    => 12,
             'calls'       => 16,
             'latency'     => 14,
