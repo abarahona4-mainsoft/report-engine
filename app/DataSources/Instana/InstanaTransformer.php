@@ -47,6 +47,9 @@ class InstanaTransformer
             })
             ->sortByDesc('calls')
             ->values()
+            ->map(function ($item, $index) {
+                return array_merge(['item' => $index + 1], $item);
+            })
             ->toArray();
 
         Log::channel('api')->info('Transformación perspectives completada', [

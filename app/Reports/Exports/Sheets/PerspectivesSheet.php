@@ -29,6 +29,7 @@ class PerspectivesSheet extends BaseExcelExport implements WithTitle
     protected function columns(): array
     {
         return [
+            '#'             => 'item',
             'Aplicación'    => 'application',
             'Servicios'     => 'services',
             'Llamadas'      => 'calls',
@@ -56,6 +57,7 @@ class PerspectivesSheet extends BaseExcelExport implements WithTitle
     protected function columnWidths(): array
     {
         return [
+            'item'        => 6,
             'application' => 45,
             'services'    => 12,
             'calls'       => 16,
