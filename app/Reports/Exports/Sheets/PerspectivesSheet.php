@@ -46,11 +46,11 @@ class PerspectivesSheet extends BaseExcelExport implements WithTitle
 
     protected function totalsRow(): array
     {
-        $count = count($this->data) + 5;
+        $lastDataRow = count($this->data) + 4;
         return [
             0 => 'TOTAL',
-            1 => "=SUM(B6:B{$count})",
-            2 => "=SUM(C6:C{$count})",
+            2 => "=SUM(C5:C{$lastDataRow})",
+            3 => "=SUM(D5:D{$lastDataRow})",
         ];
     }
 
@@ -58,7 +58,7 @@ class PerspectivesSheet extends BaseExcelExport implements WithTitle
     {
         return [
             'item'        => 6,
-            'application' => 45,
+            'application' => 55,
             'services'    => 12,
             'calls'       => 16,
             'latency'     => 14,

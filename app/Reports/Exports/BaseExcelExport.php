@@ -72,7 +72,7 @@ abstract class BaseExcelExport implements WithEvents, ShouldAutoSize
                 $this->buildTotalsRow($sheet, $lastDataRow, $lastCol);
                 $this->setColumnWidths($sheet, $keys);
 
-                $sheet->freezePane('A6');
+                $sheet->freezePane('A5');
             },
         ];
     }
@@ -108,30 +108,27 @@ abstract class BaseExcelExport implements WithEvents, ShouldAutoSize
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
         ]);
         $sheet->getRowDimension(3)->setRowHeight(20);
-
-        // Fila 4 — espacio
-        $sheet->getRowDimension(4)->setRowHeight(6);
     }
 
     private function buildColumnHeaders(Worksheet $sheet, array $headers, string $lastCol): void
     {
         foreach ($headers as $col => $header) {
-            $sheet->setCellValue($this->colLetter($col) . '5', $header);
+            $sheet->setCellValue($this->colLetter($col) . '4', $header);
         }
 
-        $sheet->getStyle("A5:{$lastCol}5")->applyFromArray([
+        $sheet->getStyle("A5:{$lastCol}4")->applyFromArray([
             'font'      => ['name' => 'Arial', 'bold' => true, 'size' => 11, 'color' => ['rgb' => 'FFFFFF']],
             'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $this->colorHeaderDark]],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
             'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
         ]);
-        $sheet->getRowDimension(5)->setRowHeight(22);
+        $sheet->getRowDimension(4)->setRowHeight(22);
     }
 
     private function buildDataRows(Worksheet $sheet, array $data, array $keys, string $lastCol): int
     {
         foreach ($data as $index => $row) {
-            $excelRow = $index + 6;
+            $excelRow = $index + 5;
             $bgColor  = $index % 2 === 0 ? $this->colorRowEven : $this->colorRowOdd;
 
             foreach ($keys as $col => $key) {
@@ -154,7 +151,7 @@ abstract class BaseExcelExport implements WithEvents, ShouldAutoSize
             $sheet->getRowDimension($excelRow)->setRowHeight(18);
         }
 
-        return count($data) + 5;
+        return count($data) + 4;
     }
 
     private function buildTotalsRow(Worksheet $sheet, int $lastDataRow, string $lastCol): void
